@@ -2,21 +2,31 @@ package org.pytorch.demo.vision;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.ImageFormat;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.util.Log;
 import android.util.Size;
 import android.view.TextureView;
+import android.view.View;
+import android.widget.Button;
 import android.widget.Toast;
 
 import org.pytorch.demo.BaseModuleActivity;
+import org.pytorch.demo.Constants;
+import org.pytorch.demo.R;
 import org.pytorch.demo.StatusBarUtils;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.annotation.WorkerThread;
+import androidx.camera.camera2.impl.ImageCaptureConfigProvider;
 import androidx.camera.core.CameraX;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageAnalysisConfig;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureConfig;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.core.PreviewConfig;
@@ -58,7 +68,7 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
       if (grantResults[0] == PackageManager.PERMISSION_DENIED) {
         Toast.makeText(
             this,
-            "You can't use image classification example without granting CAMERA permission",
+            "You can't use this without granting CAMERA permission",
             Toast.LENGTH_LONG)
             .show();
         finish();
@@ -74,27 +84,55 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
     final Preview preview = new Preview(previewConfig);
     preview.setOnPreviewOutputUpdateListener(output -> textureView.setSurfaceTexture(output.getSurfaceTexture()));
 
-    final ImageAnalysisConfig imageAnalysisConfig =
-        new ImageAnalysisConfig.Builder()
+//    final ImageAnalysisConfig imageAnalysisConfig =
+//        new ImageAnalysisConfig.Builder()
+//            .setTargetResolution(new Size(32, 32))
+//            .setCallbackHandler(mBackgroundHandler)
+//            .setImageReaderMode(ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE)
+//            .build();
+//    final ImageAnalysis imageAnalysis = new ImageAnalysis(imageAnalysisConfig);
+//    imageAnalysis.setAnalyzer(
+//        (image, rotationDegrees) -> {
+//          if (SystemClock.elapsedRealtime() - mLastAnalysisResultTime < 500) {
+//            return;
+//          }
+//
+//          final R result = analyzeImage(image, rotationDegrees);
+//          if (result != null) {
+//            mLastAnalysisResultTime = SystemClock.elapsedRealtime();
+//            runOnUiThread(() -> applyToUiAnalyzeImageResult(result));
+//          }
+//        });
+
+    // capture image
+
+    final ImageCaptureConfig imageCaptureConfig =
+        new ImageCaptureConfig.Builder()
             .setTargetResolution(new Size(32, 32))
-            .setCallbackHandler(mBackgroundHandler)
-            .setImageReaderMode(ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE)
+            .setBufferFormat(ImageFormat.YUV_420_888)
             .build();
-    final ImageAnalysis imageAnalysis = new ImageAnalysis(imageAnalysisConfig);
-    imageAnalysis.setAnalyzer(
-        (image, rotationDegrees) -> {
-          if (SystemClock.elapsedRealtime() - mLastAnalysisResultTime < 500) {
-            return;
-          }
+    final ImageCapture imageCapture = new ImageCapture(imageCaptureConfig);
+    Button capture_button = findViewById(org.pytorch.demo.R.id.capture_button);
+    capture_button.setOnClickListener(new View.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+          imageCapture.takePicture(
+          new ImageCapture.OnImageCapturedListener() {
+            @Override
+            public void onCaptureSuccess(ImageProxy image, int rotationDegrees) {
+              final R result = analyzeImage(image, rotationDegrees);
+              if (result != null) {
+                mLastAnalysisResultTime = SystemClock.elapsedRealtime();
+                runOnUiThread(() -> applyToUiAnalyzeImageResult(result));
+              }
+              image.close();
+            }
 
-          final R result = analyzeImage(image, rotationDegrees);
-          if (result != null) {
-            mLastAnalysisResultTime = SystemClock.elapsedRealtime();
-            runOnUiThread(() -> applyToUiAnalyzeImageResult(result));
-          }
-        });
+          });
+      }
+    });
 
-    CameraX.bindToLifecycle(this, preview, imageAnalysis);
+    CameraX.bindToLifecycle(this, preview, imageCapture);
   }
 
   @WorkerThread

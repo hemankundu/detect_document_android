@@ -25,7 +25,7 @@
 
     <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
 
-    <style name="TextAppearanceDetectDocumentResultTop1" parent="TextAppearance.AppCompat.Large">
+    <style name="TextAppearanceDetectDocumentResultTop1" parent="TextAppearance.AppCompat.Medium">
         <item name="android:textColor">@android:color/white</item>
         <item name="android:includeFontPadding">false</item>
     </style>
@@ -36,7 +36,7 @@
     </style>
 
 
-    <style name="DetectDocumentResultRowTextView">
+    <style name="DetectDocumentResultTextView">
         <item name="android:singleLine">true</item>
         <item name="android:ellipsize">marquee</item>
     </style>

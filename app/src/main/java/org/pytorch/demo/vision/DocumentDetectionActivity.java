@@ -15,7 +15,6 @@ import org.pytorch.Tensor;
 import org.pytorch.demo.Constants;
 import org.pytorch.demo.R;
 import org.pytorch.demo.Utils;
-import org.pytorch.demo.vision.view.ResultRowView;
 import org.pytorch.torchvision.TensorImageUtils;
 
 import java.io.File;
@@ -52,7 +51,7 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
   }
 
   private boolean mAnalyzeImageErrorState;
-  private ResultRowView[] mResultRowViews = new ResultRowView[1];
+  private TextView ResultTextView;
   private Module mModule;
   private String mModuleAssetName;
   private FloatBuffer mInputTensorBuffer;
@@ -73,24 +72,16 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    final ResultRowView headerResultRowView =
-        findViewById(R.id.detect_document_result_header_row);
-    headerResultRowView.nameTextView.setText(R.string.detect_document_results_header_row_name);
-    headerResultRowView.scoreTextView.setText(R.string.detect_document_results_header_row_score);
-
-    mResultRowViews[0] = findViewById(R.id.detect_document_top1_result_row);
+    ResultTextView = findViewById(R.id.detect_document_top1_result_row);
   }
 
   @Override
   protected void applyToUiAnalyzeImageResult(AnalysisResult result) {
-
+    String text = "";
     for (int i = 0; i < 8; i++) {
-      final ResultRowView rowView = mResultRowViews[i];
-      rowView.nameTextView.setText(String.format(Locale.US, "Result %d ", i));
-      rowView.scoreTextView.setText(String.format(Locale.US, RESULTS_FORMAT,
-          result.Results[i]));
-      rowView.setProgressState(false);
+      text += " | " + String.format(Locale.US, RESULTS_FORMAT, result.Results[i]);
     }
+    ResultTextView.setText(text);
   }
 
   protected String getModuleAssetName() {
@@ -142,6 +133,7 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
       final long moduleForwardDuration = SystemClock.elapsedRealtime() - moduleForwardStartTime;
 
       final float[] results = outputTensor.getDataAsFloatArray();
+
       final int[] ixs = Utils.topK(results, 8);
 
       final float[] Results = new float[8];

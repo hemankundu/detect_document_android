@@ -23,6 +23,7 @@
     <string name="vision_card_normal_description">Input is float32 tensor of 1x3x32x32 shape</string>
 
     <string name="clear">Clear</string>
+    <string name="result">Result</string>
     <string name="error_dialog_text">Sorry there was an error.</string>
 
 </resources>
