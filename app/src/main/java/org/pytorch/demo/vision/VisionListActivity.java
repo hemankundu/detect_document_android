@@ -12,19 +12,19 @@ public class VisionListActivity extends AbstractListActivity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    findViewById(R.id.vision_card_qmobilenet_click_area).setOnClickListener(v -> {
-      final Intent intent = new Intent(VisionListActivity.this, ImageClassificationActivity.class);
-      intent.putExtra(ImageClassificationActivity.INTENT_MODULE_ASSET_NAME,
-          "mobilenet_v2.pt");
-      intent.putExtra(ImageClassificationActivity.INTENT_INFO_VIEW_TYPE,
-          InfoViewFactory.INFO_VIEW_TYPE_IMAGE_CLASSIFICATION_QMOBILENET);
+    findViewById(R.id.vision_card_quantized_click_area).setOnClickListener(v -> {
+      final Intent intent = new Intent(VisionListActivity.this, DocumentDetectionActivity.class);
+      intent.putExtra(DocumentDetectionActivity.INTENT_MODULE_ASSET_NAME,
+          "test1document_shallow.pt");
+      intent.putExtra(DocumentDetectionActivity.INTENT_INFO_VIEW_TYPE,
+          InfoViewFactory.INFO_VIEW_TYPE_DETECT_DOCUMENT_QUANTIZED);
       startActivity(intent);
     });
-    findViewById(R.id.vision_card_resnet_click_area).setOnClickListener(v -> {
-      final Intent intent = new Intent(VisionListActivity.this, ImageClassificationActivity.class);
-      intent.putExtra(ImageClassificationActivity.INTENT_MODULE_ASSET_NAME, "resnet18.pt");
-      intent.putExtra(ImageClassificationActivity.INTENT_INFO_VIEW_TYPE,
-          InfoViewFactory.INFO_VIEW_TYPE_IMAGE_CLASSIFICATION_RESNET);
+    findViewById(R.id.vision_card_normal_click_area).setOnClickListener(v -> {
+      final Intent intent = new Intent(VisionListActivity.this, DocumentDetectionActivity.class);
+      intent.putExtra(DocumentDetectionActivity.INTENT_MODULE_ASSET_NAME, "test1document_shallow_repo.pt");
+      intent.putExtra(DocumentDetectionActivity.INTENT_INFO_VIEW_TYPE,
+          InfoViewFactory.INFO_VIEW_TYPE_DETECT_DOCUMENT_NORMAL);
       startActivity(intent);
     });
   }

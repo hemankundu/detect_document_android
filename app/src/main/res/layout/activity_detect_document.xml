@@ -8,11 +8,11 @@
     android:fitsSystemWindows="true">
 
     <ViewStub
-        android:id="@+id/image_classification_texture_view_stub"
+        android:id="@+id/detect_document_texture_view_stub"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout="@layout/texture_view"
-        app:layout_constraintBottom_toTopOf="@id/document_detection_result_header_row"
+        app:layout_constraintBottom_toTopOf="@id/detect_document_result_header_row"
         app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.appcompat.widget.Toolbar
@@ -26,10 +26,10 @@
         app:layout_constraintTop_toTopOf="parent"
         app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
         app:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
-        app:title="@string/image_classification_title" />
+        app:title="@string/detect_document_title" />
 
     <org.pytorch.demo.vision.view.ResultRowView
-        android:id="@+id/image_classification_top1_result_row"
+        android:id="@+id/detect_document_top1_result_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="@dimen/image_classification_result_row_margin"
@@ -43,19 +43,19 @@
         app:progressBarDrawableRes="@drawable/result_row_progress_bar_top1"
         app:progressBarHeightRes="@dimen/result_row_progress_bar_height_top1"
         app:progressBarPaddingRes="@dimen/result_row_progress_bar_padding"
-        app:textAppearance="@style/TextAppearanceImageClassificationResultTop1" />
+        app:textAppearance="@style/TextAppearanceDetectDocumentResultTop1" />
 
     <org.pytorch.demo.vision.view.ResultRowView
-        android:id="@+id/document_detection_result_header_row"
+        android:id="@+id/detect_document_result_header_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="@dimen/image_classification_result_row_margin"
         android:layout_marginBottom="16dp"
         android:padding="@dimen/image_classification_result_row_padding"
-        app:layout_constraintBottom_toTopOf="@id/image_classification_top1_result_row"
+        app:layout_constraintBottom_toTopOf="@id/detect_document_top1_result_row"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
-        app:textAppearance="@style/TextAppearanceImageClassificationResultHeader" />
+        app:textAppearance="@style/TextAppearanceDetectDocumentResultHeader" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

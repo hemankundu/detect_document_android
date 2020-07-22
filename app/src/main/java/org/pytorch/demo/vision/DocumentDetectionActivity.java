@@ -28,109 +28,68 @@ import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.camera.core.ImageProxy;
 
-public class ImageClassificationActivity extends AbstractCameraXActivity<ImageClassificationActivity.AnalysisResult> {
+public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentDetectionActivity.AnalysisResult> {
 
   public static final String INTENT_MODULE_ASSET_NAME = "INTENT_MODULE_ASSET_NAME";
   public static final String INTENT_INFO_VIEW_TYPE = "INTENT_INFO_VIEW_TYPE";
 
-  private static final int INPUT_TENSOR_WIDTH = 224;
-  private static final int INPUT_TENSOR_HEIGHT = 224;
-  private static final int TOP_K = 3;
-  private static final int MOVING_AVG_PERIOD = 10;
-  private static final String FORMAT_MS = "%dms";
-  private static final String FORMAT_AVG_MS = "avg:%.0fms";
-
-  private static final String FORMAT_FPS = "%.1fFPS";
-  public static final String SCORES_FORMAT = "%.2f";
+  private static final int INPUT_TENSOR_WIDTH = 32;
+  private static final int INPUT_TENSOR_HEIGHT = 32;
+  public static final String RESULTS_FORMAT = "%.2f";
 
   static class AnalysisResult {
 
-    private final String[] topNClassNames;
-    private final float[] topNScores;
+    private final float[] Results;
     private final long analysisDuration;
     private final long moduleForwardDuration;
 
-    public AnalysisResult(String[] topNClassNames, float[] topNScores,
+    public AnalysisResult(float[] Results,
                           long moduleForwardDuration, long analysisDuration) {
-      this.topNClassNames = topNClassNames;
-      this.topNScores = topNScores;
+      this.Results = Results;
       this.moduleForwardDuration = moduleForwardDuration;
       this.analysisDuration = analysisDuration;
     }
   }
 
   private boolean mAnalyzeImageErrorState;
-  private ResultRowView[] mResultRowViews = new ResultRowView[TOP_K];
-  private TextView mFpsText;
-  private TextView mMsText;
-  private TextView mMsAvgText;
+  private ResultRowView[] mResultRowViews = new ResultRowView[1];
   private Module mModule;
   private String mModuleAssetName;
   private FloatBuffer mInputTensorBuffer;
   private Tensor mInputTensor;
-  private long mMovingAvgSum = 0;
-  private Queue<Long> mMovingAvgQueue = new LinkedList<>();
 
   @Override
   protected int getContentViewLayoutId() {
-    return R.layout.activity_document_detection;
+    return R.layout.activity_detect_document;
   }
 
   @Override
   protected TextureView getCameraPreviewTextureView() {
-    return ((ViewStub) findViewById(R.id.image_classification_texture_view_stub))
+    return ((ViewStub) findViewById(R.id.detect_document_texture_view_stub))
         .inflate()
-        .findViewById(R.id.image_classification_texture_view);
+        .findViewById(R.id.detect_document_texture_view);
   }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     final ResultRowView headerResultRowView =
-        findViewById(R.id.document_detection_result_header_row);
-    headerResultRowView.nameTextView.setText(R.string.image_classification_results_header_row_name);
-    headerResultRowView.scoreTextView.setText(R.string.image_classification_results_header_row_score);
+        findViewById(R.id.detect_document_result_header_row);
+    headerResultRowView.nameTextView.setText(R.string.detect_document_results_header_row_name);
+    headerResultRowView.scoreTextView.setText(R.string.detect_document_results_header_row_score);
 
-    mResultRowViews[0] = findViewById(R.id.image_classification_top1_result_row);
-    mResultRowViews[1] = findViewById(R.id.image_classification_top2_result_row);
-    mResultRowViews[2] = findViewById(R.id.image_classification_top3_result_row);
-
-    mFpsText = findViewById(R.id.document_detection_fps_text);
-    mMsText = findViewById(R.id.document_detection_ms_text);
-    mMsAvgText = findViewById(R.id.document_detection_ms_avg_text);
+    mResultRowViews[0] = findViewById(R.id.detect_document_top1_result_row);
   }
 
   @Override
   protected void applyToUiAnalyzeImageResult(AnalysisResult result) {
-    mMovingAvgSum += result.moduleForwardDuration;
-    mMovingAvgQueue.add(result.moduleForwardDuration);
-    if (mMovingAvgQueue.size() > MOVING_AVG_PERIOD) {
-      mMovingAvgSum -= mMovingAvgQueue.remove();
-    }
 
-    for (int i = 0; i < TOP_K; i++) {
+    for (int i = 0; i < 8; i++) {
       final ResultRowView rowView = mResultRowViews[i];
-      rowView.nameTextView.setText(result.topNClassNames[i]);
-      rowView.scoreTextView.setText(String.format(Locale.US, SCORES_FORMAT,
-          result.topNScores[i]));
+      rowView.nameTextView.setText(String.format(Locale.US, "Result %d ", i));
+      rowView.scoreTextView.setText(String.format(Locale.US, RESULTS_FORMAT,
+          result.Results[i]));
       rowView.setProgressState(false);
-    }
-
-    mMsText.setText(String.format(Locale.US, FORMAT_MS, result.moduleForwardDuration));
-    if (mMsText.getVisibility() != View.VISIBLE) {
-      mMsText.setVisibility(View.VISIBLE);
-    }
-    mFpsText.setText(String.format(Locale.US, FORMAT_FPS, (1000.f / result.analysisDuration)));
-    if (mFpsText.getVisibility() != View.VISIBLE) {
-      mFpsText.setVisibility(View.VISIBLE);
-    }
-
-    if (mMovingAvgQueue.size() == MOVING_AVG_PERIOD) {
-      float avgMs = (float) mMovingAvgSum / MOVING_AVG_PERIOD;
-      mMsAvgText.setText(String.format(Locale.US, FORMAT_AVG_MS, avgMs));
-      if (mMsAvgText.getVisibility() != View.VISIBLE) {
-        mMsAvgText.setVisibility(View.VISIBLE);
-      }
     }
   }
 
@@ -141,7 +100,7 @@ public class ImageClassificationActivity extends AbstractCameraXActivity<ImageCl
     final String moduleAssetNameFromIntent = getIntent().getStringExtra(INTENT_MODULE_ASSET_NAME);
     mModuleAssetName = !TextUtils.isEmpty(moduleAssetNameFromIntent)
         ? moduleAssetNameFromIntent
-        : "resnet18.pt";
+        : "test1document_shallow_repo.pt";
 
     return mModuleAssetName;
   }
@@ -182,24 +141,22 @@ public class ImageClassificationActivity extends AbstractCameraXActivity<ImageCl
       final Tensor outputTensor = mModule.forward(IValue.from(mInputTensor)).toTensor();
       final long moduleForwardDuration = SystemClock.elapsedRealtime() - moduleForwardStartTime;
 
-      final float[] scores = outputTensor.getDataAsFloatArray();
-      final int[] ixs = Utils.topK(scores, TOP_K);
+      final float[] results = outputTensor.getDataAsFloatArray();
+      final int[] ixs = Utils.topK(results, 8);
 
-      final String[] topKClassNames = new String[TOP_K];
-      final float[] topKScores = new float[TOP_K];
-      for (int i = 0; i < TOP_K; i++) {
+      final float[] Results = new float[8];
+      for (int i = 0; i < 8; i++) {
         final int ix = ixs[i];
-        topKClassNames[i] = Constants.IMAGENET_CLASSES[ix];
-        topKScores[i] = scores[ix];
+        Results[i] = results[ix];
       }
       final long analysisDuration = SystemClock.elapsedRealtime() - startTime;
-      return new AnalysisResult(topKClassNames, topKScores, moduleForwardDuration, analysisDuration);
+      return new AnalysisResult(Results, moduleForwardDuration, analysisDuration);
     } catch (Exception e) {
       Log.e(Constants.TAG, "Error during image analysis", e);
       mAnalyzeImageErrorState = true;
       runOnUiThread(() -> {
         if (!isFinishing()) {
-          showErrorDialog(v -> ImageClassificationActivity.this.finish());
+          showErrorDialog(v -> DocumentDetectionActivity.this.finish());
         }
       });
       return null;

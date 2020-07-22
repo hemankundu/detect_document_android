@@ -20,11 +20,9 @@
 
         <activity android:name=".MainActivity"></activity>
         <activity android:name=".vision.VisionListActivity" />
-        <activity android:name=".nlp.NLPListActivity" />
         <activity
-            android:name=".vision.ImageClassificationActivity"
-            android:label="@string/image_classification_title"></activity>
-        <activity android:name=".nlp.TextClassificationActivity" />
+            android:name=".vision.DocumentDetectionActivity"
+            android:label="@string/detect_document_title"></activity>
 
     </application>
 

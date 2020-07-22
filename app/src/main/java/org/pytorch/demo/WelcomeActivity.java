@@ -39,13 +39,9 @@ public class WelcomeActivity extends AppCompatActivity {
           R.drawable.ic_logo_pytorch,
           R.string.welcome_page_description),
       new PageData(
-          R.string.welcome_page_image_classification_title,
-          R.drawable.ic_image_classification_l,
-          R.string.welcome_page_image_classification_description),
-      new PageData(
-          R.string.welcome_page_nlp_title,
-          R.drawable.ic_text_classification_l,
-          R.string.welcome_page_nlp_description)
+          R.string.welcome_page_detect_document_title,
+          R.drawable.ic_document_detection_l,
+          R.string.welcome_page_detect_document_description)
   };
 
   @Override

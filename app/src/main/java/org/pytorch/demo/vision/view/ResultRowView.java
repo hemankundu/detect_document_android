@@ -48,7 +48,7 @@ public class ResultRowView extends RelativeLayout {
   public ResultRowView(@NonNull Context context, @Nullable AttributeSet attrs, int defStyleAttr,
                        int defStyleRes) {
     super(context, attrs, defStyleAttr, defStyleRes);
-    inflate(context, R.layout.image_classification_result_row, this);
+    inflate(context, R.layout.detect_document_result_row, this);
     nameTextView = findViewById(R.id.result_row_name_text);
     scoreTextView = findViewById(R.id.result_row_score_text);
 
@@ -57,12 +57,6 @@ public class ResultRowView extends RelativeLayout {
         R.styleable.ResultRowView,
         defStyleAttr, defStyleRes);
     try {
-      final @StyleRes int textAppearanceResId =
-          a.getResourceId(R.styleable.ResultRowView_textAppearance,
-              R.style.TextAppearanceImageClassificationResultTop2Plus);
-
-      nameTextView.setTextAppearance(context, textAppearanceResId);
-      scoreTextView.setTextAppearance(context, textAppearanceResId);
 
       final @DimenRes int progressBarHeightDimenResId =
           a.getResourceId(R.styleable.ResultRowView_progressBarHeightRes, 0);
