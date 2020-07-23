@@ -47,11 +47,11 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent" />
 
-    <ViewStub
-        android:id="@+id/detect_document_texture_view_stub"
+    <androidx.camera.view.PreviewView
+        android:id="@+id/detect_document_preview_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout="@layout/texture_view"
+        android:layout="@layout/preview_view"
         app:layout_constraintBottom_toTopOf="@id/detect_document_result_header_row"
         app:layout_constraintTop_toTopOf="parent" />
 
