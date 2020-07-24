@@ -18,6 +18,7 @@ import org.pytorch.torchvision.TensorImageUtils;
 import java.io.File;
 import java.nio.FloatBuffer;
 import java.util.Locale;
+import java.util.Objects;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
@@ -80,11 +81,11 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
 
   @Override
   protected void applyToUiAnalyzeImageResult(AnalysisResult result) {
-    String text = "";
+    StringBuilder text = new StringBuilder();
     for (int i = 0; i < 8; i++) {
-      text += " | " + String.format(Locale.US, RESULTS_FORMAT, result.Results[i]);
+      text.append(" | ").append(String.format(Locale.US, RESULTS_FORMAT, result.Results[i]));
     }
-    ResultTextView.setText(text);
+    ResultTextView.setText(text.toString());
   }
 
   protected String getModuleAssetName(String moduleType) {
@@ -127,7 +128,7 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
       //run document model
       if (mDocumentModule == null) {
         final String moduleFileAbsoluteFilePath = new File(
-            Utils.assetFilePath(this, getModuleAssetName("DOCUMENT"))).getAbsolutePath();
+                Objects.requireNonNull(Utils.assetFilePath(this, getModuleAssetName("DOCUMENT")))).getAbsolutePath();
         mDocumentModule = Module.load(moduleFileAbsoluteFilePath);
 
         mDocumentInputTensorBuffer =
@@ -137,6 +138,7 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
 
       long startTime = SystemClock.elapsedRealtime();
       Image originalImage = image.getImage();
+      assert originalImage != null;
       TensorImageUtils.imageYUV420CenterCropToFloatBuffer(
               originalImage, 90,
           INPUT_TENSOR_DOCUMENT_WIDTH, INPUT_TENSOR_DOCUMENT_HEIGHT,
