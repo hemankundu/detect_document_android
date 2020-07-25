@@ -1,5 +1,10 @@
 package org.pytorch.demo.vision;
 
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Matrix;
+import android.graphics.Paint;
 import android.media.Image;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -35,19 +40,29 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
   private static final int INPUT_TENSOR_DOCUMENT_HEIGHT = 32;
   private static final int INPUT_TENSOR_CORNER_WIDTH = 32;
   private static final int INPUT_TENSOR_CORNER_HEIGHT = 32;
-  public static final String RESULTS_FORMAT = "%.2f";
+  public static final String RESULTS_FORMAT = "%d";
+
 
   static class AnalysisResult {
 
-    private final float[] Results;
-    private final long analysisDuration;
-    private final long moduleForwardDuration;
+    private final float[] documentResults;
+    private final int[] firstResults;
+    private final int[] finalResults;
 
-    public AnalysisResult(float[] Results,
-                          long moduleForwardDuration, long analysisDuration) {
-      this.Results = Results;
-      this.moduleForwardDuration = moduleForwardDuration;
-      this.analysisDuration = analysisDuration;
+    public AnalysisResult(float[] documentResults, int[] firstResults, int[] finalResults) {
+      this.documentResults = documentResults;
+      this.firstResults = firstResults;
+      this.finalResults = finalResults;
+    }
+  }
+
+  static class CornerRegion {
+    public int x1, y1, x2, y2;
+    public CornerRegion(int y1, int y2, int x1, int x2) {
+      this.x1 = x1;
+      this.y1 = y1;
+      this.x2 = x2;
+      this.y2 = y2;
     }
   }
 
@@ -58,7 +73,6 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
   private String mDocumentModuleAssetName;
   private String mCornerModuleAssetName;
   private FloatBuffer mDocumentInputTensorBuffer;
-  private FloatBuffer mCornerInputTensorBuffer;
   private Tensor mDocumentInputTensor;
   private Tensor mCornerInputTensor;
 
@@ -83,7 +97,7 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
   protected void applyToUiAnalyzeImageResult(AnalysisResult result) {
     StringBuilder text = new StringBuilder();
     for (int i = 0; i < 8; i++) {
-      text.append(" | ").append(String.format(Locale.US, RESULTS_FORMAT, result.Results[i]));
+      text.append(" | ").append(String.format(Locale.US, RESULTS_FORMAT, result.finalResults[i]));
     }
     ResultTextView.setText(text.toString());
   }
@@ -119,7 +133,7 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
   @Override
   @WorkerThread
   @Nullable
-  protected AnalysisResult analyzeImage(ImageProxy image) {
+  protected AnalysisResult analyzeImage(Bitmap bitmapImage) {
     if (mAnalyzeImageErrorState) {
       return null;
     }
@@ -137,72 +151,121 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
       }
 
       long startTime = SystemClock.elapsedRealtime();
-      Image originalImage = image.getImage();
-      assert originalImage != null;
-      TensorImageUtils.imageYUV420CenterCropToFloatBuffer(
-              originalImage, 90,
+      Bitmap resizedBitmapImage = Bitmap.createScaledBitmap(bitmapImage, INPUT_TENSOR_DOCUMENT_WIDTH, INPUT_TENSOR_DOCUMENT_HEIGHT, true);
+      TensorImageUtils.bitmapToFloatBuffer(
+              resizedBitmapImage, 0, 0,
           INPUT_TENSOR_DOCUMENT_WIDTH, INPUT_TENSOR_DOCUMENT_HEIGHT,
           TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
           TensorImageUtils.TORCHVISION_NORM_STD_RGB,
           mDocumentInputTensorBuffer, 0);
 
       final long documentInputPrepareDuration = SystemClock.elapsedRealtime() - startTime;
-
-      final Tensor outputTensor = mDocumentModule.forward(IValue.from(mDocumentInputTensor)).toTensor();
-
+      final Tensor documentOutputTensor = mDocumentModule.forward(IValue.from(mDocumentInputTensor)).toTensor();
       final long documentModuleForwardDuration = SystemClock.elapsedRealtime() - documentInputPrepareDuration;
-
-      final float[] results = outputTensor.getDataAsFloatArray();
-
-      final float[] Results = new float[8];
-      for (int i = 0; i < 8; i++) {
-        Results[i] = results[i];
-      }
+      final float[] documentResults = documentOutputTensor.getDataAsFloatArray();
 
       //test image class
-//      originalImage.
+      int imageHeight = bitmapImage.getHeight();
+      int imageWidth = bitmapImage.getWidth();
 
+      int [] xCords = new int[4];
+      int [] yCords = new int[4];
 
+      for (int i = 0; i < 4; i++) {
+        xCords[i] = (int)(documentResults[i*2] * imageWidth);
+      }
 
-//      //run corner model
-//      if (mCornerModule == null) {
-//        final String moduleFileAbsoluteFilePath = new File(
-//                Utils.assetFilePath(this, getModuleAssetName("CORNER"))).getAbsolutePath();
-//        mCornerModule = Module.load(moduleFileAbsoluteFilePath);
-//
-//        mCornerInputTensorBuffer =
-//                Tensor.allocateFloatBuffer(3 * INPUT_TENSOR_CORNER_WIDTH * INPUT_TENSOR_CORNER_HEIGHT);
-//        mCornerInputTensor = Tensor.fromBlob(mCornerInputTensorBuffer, new long[]{1, 3, INPUT_TENSOR_CORNER_HEIGHT, INPUT_TENSOR_CORNER_WIDTH});
-//      }
-//
-//      startTime = SystemClock.elapsedRealtime();
-//
-//      TensorImageUtils.imageYUV420CenterCropToFloatBuffer(
-//              image.getImage(), rotationDegrees,
-//              INPUT_TENSOR_CORNER_WIDTH, INPUT_TENSOR_CORNER_HEIGHT,
-//              TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
-//              TensorImageUtils.TORCHVISION_NORM_STD_RGB,
-//              mCornerInputTensorBuffer, 0);
-//
-//      final long cornerInputPrepareDuration = SystemClock.elapsedRealtime() - startTime;
-//
-//      final Tensor outputTensor = mCornerModule.forward(IValue.from(mCornerInputTensor)).toTensor();
-//
-//      final long cornerModuleForwardDuration = SystemClock.elapsedRealtime() - cornerInputPrepareDuration;
-//
-//      final float[] results = outputTensor.getDataAsFloatArray();
-//
-//      final int[] ixs = Utils.topK(results, 8);
-//
-//      final float[] Results = new float[8];
-//      for (int i = 0; i < 8; i++) {
-//        final int ix = ixs[i];
-//        Results[i] = results[ix];
-//      }
-//
+      for (int i = 0; i < 4; i++) {
+        yCords[i] = (int)(documentResults[(i*2)+1] * imageHeight);
+      }
+
+      final int[] firstResults = new int[8];
+      for (int i = 0; i < 4; i++){
+        firstResults[2*i] = xCords[i];
+        firstResults[(2*i)+1] = yCords[i];
+      }
+
+      CornerRegion topLeft = new CornerRegion(
+              Math.max(0, (int)(2 * yCords[0] - (yCords[3] + yCords[0]) / 2)),
+              (int)((yCords[3] + yCords[0]) / 2),
+              Math.max(0, (int)(2 * xCords[0] - (xCords[1] + xCords[0]) / 2)),
+              (int)((xCords[1] + xCords[0]) / 2));
+
+      CornerRegion topRight = new CornerRegion(
+              Math.max(0, (int)(2 * yCords[1] - (yCords[1] + yCords[2]) / 2)),
+              (int)((yCords[1] + yCords[2]) / 2),
+              (int)((xCords[1] + xCords[0]) / 2),
+              Math.min(imageWidth - 1, (int)(xCords[1] + (xCords[1] - xCords[0]) / 2)));
+
+      CornerRegion bottomRight = new CornerRegion(
+              (int)((yCords[1] + yCords[2]) / 2),
+              Math.min(imageHeight - 1, (int)(yCords[2] + (yCords[2] - yCords[1]) / 2)),
+              (int)((xCords[2] + xCords[3]) / 2),
+              Math.min(imageWidth - 1, (int)(xCords[2] + (xCords[2] - xCords[3]) / 2)));
+
+      CornerRegion bottomLeft = new CornerRegion(
+              (int)((yCords[0] + yCords[3]) / 2),
+              Math.min(imageHeight - 1, (int)(yCords[3] + (yCords[3] - yCords[0]) / 2)),
+              Math.max(0, (int)(2 * xCords[3] - (xCords[2] + xCords[3]) / 2)),
+              (int)((xCords[3] + xCords[2]) / 2));
+
+      CornerRegion[] cornerRegions= {topLeft, topRight, bottomLeft, bottomRight};
+
+      final int[] finalResults = new int[8];
+      int finalResultsIdx = 0;
+
+      //run corner model
+      if (mCornerModule == null) {
+        final String moduleFileAbsoluteFilePath = new File(
+                Objects.requireNonNull(Utils.assetFilePath(this, getModuleAssetName("CORNER")))).getAbsolutePath();
+        mCornerModule = Module.load(moduleFileAbsoluteFilePath);
+
+        FloatBuffer mCornerInputTensorBuffer = Tensor.allocateFloatBuffer(3 * INPUT_TENSOR_CORNER_WIDTH * INPUT_TENSOR_CORNER_HEIGHT);
+        mCornerInputTensor = Tensor.fromBlob(mCornerInputTensorBuffer, new long[]{1, 3, INPUT_TENSOR_CORNER_HEIGHT, INPUT_TENSOR_CORNER_WIDTH});
+      }
+
+      //circle canvas setup
+      Bitmap overlay = Bitmap.createBitmap(bitmapImage.getWidth(), bitmapImage.getHeight(), bitmapImage.getConfig());
+      Canvas canvas = new Canvas(overlay);
+      Paint paint = new Paint();
+      canvas.drawBitmap(bitmapImage, new Matrix(), null);
+      paint.setColor(Color.RED);
+      paint.setStrokeWidth(10);
+      for (int i = 0; i < 4; i++) {
+        canvas.drawCircle(xCords[i], yCords[i], 50, paint);
+      }
+      paint.setColor(Color.BLUE);
+
+      for (CornerRegion cornerRegion : cornerRegions) {
+        startTime = SystemClock.elapsedRealtime();
+        Bitmap cornerBitmap = Bitmap.createBitmap(bitmapImage, cornerRegion.x1, cornerRegion.y1,
+                cornerRegion.x2 - cornerRegion.x1, cornerRegion.y2 - cornerRegion.y1);
+        Bitmap resizedCornerBitmap = Bitmap.createScaledBitmap(cornerBitmap, INPUT_TENSOR_CORNER_WIDTH, INPUT_TENSOR_CORNER_HEIGHT, true);
+        TensorImageUtils.bitmapToFloatBuffer(
+                resizedCornerBitmap, 0, 0,
+                INPUT_TENSOR_CORNER_WIDTH, INPUT_TENSOR_CORNER_HEIGHT,
+                TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
+                TensorImageUtils.TORCHVISION_NORM_STD_RGB,
+                mDocumentInputTensorBuffer, 0);
+
+        final long cornerInputPrepareDuration = SystemClock.elapsedRealtime() - startTime;
+        final Tensor cornerOutputTensor = mCornerModule.forward(IValue.from(mCornerInputTensor)).toTensor();
+        final long cornerModuleForwardDuration = SystemClock.elapsedRealtime() - cornerInputPrepareDuration;
+        final float[] cornerResults = cornerOutputTensor.getDataAsFloatArray();
+
+        int finalCornerX = (int)(cornerResults[0] * (cornerRegion.x2 - cornerRegion.x1)) + cornerRegion.x1;
+        int finalCornerY = (int)(cornerResults[1] * (cornerRegion.y2 - cornerRegion.y1)) + cornerRegion.y1;
+        finalResults[finalResultsIdx++] = finalCornerX;
+        finalResults[finalResultsIdx++] = finalCornerY;
+
+        //draw a circle
+        canvas.drawCircle(finalCornerX, finalCornerY, 50, paint);
+
+      }
+
       final long analysisDuration = SystemClock.elapsedRealtime() - startTime;
 
-      return new AnalysisResult(Results, documentModuleForwardDuration, analysisDuration);
+      return new AnalysisResult(documentResults, firstResults, finalResults);
 
     } catch (Exception e) {
       Log.e(Constants.TAG, "Error during image analysis", e);

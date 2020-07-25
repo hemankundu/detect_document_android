@@ -2,8 +2,13 @@ package org.pytorch.demo.vision;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
+import android.media.Image;
 import android.os.Bundle;
+import android.os.Environment;
+import android.view.Surface;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -12,7 +17,11 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.pytorch.demo.BaseModuleActivity;
 import org.pytorch.demo.StatusBarUtils;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 
@@ -82,6 +91,15 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
     }
   }
 
+  private Bitmap convertImageProxyToBitmap(ImageProxy image) {
+    ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
+    byteBuffer.rewind();
+    byte[] bytes = new byte[byteBuffer.capacity()];
+    byteBuffer.get(bytes);
+    byte[] clonedBytes = bytes.clone();
+    return BitmapFactory.decodeByteArray(clonedBytes, 0, clonedBytes.length);
+  }
+
   private void setupCameraX() throws ExecutionException, InterruptedException {
 
     ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
@@ -98,7 +116,7 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
 
     final ImageCapture imageCapture =
             new ImageCapture.Builder()
-            .setBufferFormat(ImageFormat.YUV_420_888)
+            .setTargetRotation(Surface.ROTATION_90)
             .build();
     cameraProvider.bindToLifecycle((LifecycleOwner)this, cameraSelector, imageCapture, preview);
 
@@ -109,7 +127,10 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
         new ImageCapture.OnImageCapturedCallback() {
           @Override
           public void onCaptureSuccess(@NonNull ImageProxy image) {
-            final R result = analyzeImage(image);
+
+            Bitmap bitmapImage = convertImageProxyToBitmap(image);
+
+            final R result = analyzeImage(bitmapImage);
             if (result != null) {
               runOnUiThread(() -> applyToUiAnalyzeImageResult(result));
             }
@@ -118,6 +139,8 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
         }
       );
 
+      // Save captured image
+//      File file = new File(Environment.getExternalStorageDirectory() + "/" + System.currentTimeMillis() + ".jpg");
       ImageCapture.OutputFileOptions outputFileOptions =
               new ImageCapture.OutputFileOptions.Builder(new File("Image.jpeg")).build();
 
@@ -140,7 +163,7 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
 
   @WorkerThread
   @Nullable
-  protected abstract R analyzeImage(ImageProxy image);
+  protected abstract R analyzeImage(Bitmap bitmapImage);
 
   @UiThread
   protected abstract void applyToUiAnalyzeImageResult(R result);
