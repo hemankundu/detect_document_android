@@ -5,9 +5,12 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.media.Image;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Size;
 import android.view.Surface;
 import android.widget.Button;
 import android.widget.Toast;
@@ -27,6 +30,7 @@ import java.util.concurrent.Executors;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.UiThread;
 import androidx.annotation.WorkerThread;
 import androidx.camera.core.CameraSelector;
@@ -91,13 +95,24 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
     }
   }
 
-  private Bitmap convertImageProxyToBitmap(ImageProxy image) {
+  private static Bitmap convertImageProxyToBitmap(ImageProxy image) {
     ByteBuffer byteBuffer = image.getPlanes()[0].getBuffer();
     byteBuffer.rewind();
     byte[] bytes = new byte[byteBuffer.capacity()];
     byteBuffer.get(bytes);
     byte[] clonedBytes = bytes.clone();
+//    BitmapFactory.Options options = new BitmapFactory.Options();
+//    options.outConfig = Bitmap.Config.ARGB_8888;
+//    return BitmapFactory.decodeByteArray(clonedBytes, 0, clonedBytes.length, options);
     return BitmapFactory.decodeByteArray(clonedBytes, 0, clonedBytes.length);
+
+  }
+
+  private static Bitmap rotateImage(Bitmap source, float angle) {
+    Matrix matrix = new Matrix();
+    matrix.postRotate(angle);
+    return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(),
+            matrix, true);
   }
 
   private void setupCameraX() throws ExecutionException, InterruptedException {
@@ -129,7 +144,7 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
           public void onCaptureSuccess(@NonNull ImageProxy image) {
 
             Bitmap bitmapImage = convertImageProxyToBitmap(image);
-
+            bitmapImage = rotateImage(bitmapImage, 90);
             final R result = analyzeImage(bitmapImage);
             if (result != null) {
               runOnUiThread(() -> applyToUiAnalyzeImageResult(result));

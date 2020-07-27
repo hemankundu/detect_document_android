@@ -5,7 +5,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.media.Image;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.TextUtils;
@@ -21,13 +20,11 @@ import org.pytorch.demo.Utils;
 import org.pytorch.torchvision.TensorImageUtils;
 
 import java.io.File;
-import java.nio.FloatBuffer;
 import java.util.Locale;
 import java.util.Objects;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
-import androidx.camera.core.ImageProxy;
 import androidx.camera.view.PreviewView;
 
 public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentDetectionActivity.AnalysisResult> {
@@ -59,10 +56,10 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
   static class CornerRegion {
     public int x1, y1, x2, y2;
     public CornerRegion(int y1, int y2, int x1, int x2) {
-      this.x1 = x1;
-      this.y1 = y1;
-      this.x2 = x2;
-      this.y2 = y2;
+      this.x1 = Math.max(x1, 0);
+      this.y1 = Math.max(y1, 0);
+      this.x2 = Math.max(x2, 0);
+      this.y2 = Math.max(y2, 0);
     }
   }
 
@@ -72,7 +69,6 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
   private Module mCornerModule;
   private String mDocumentModuleAssetName;
   private String mCornerModuleAssetName;
-  private FloatBuffer mDocumentInputTensorBuffer;
   private Tensor mDocumentInputTensor;
   private Tensor mCornerInputTensor;
 
@@ -144,20 +140,12 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
         final String moduleFileAbsoluteFilePath = new File(
                 Objects.requireNonNull(Utils.assetFilePath(this, getModuleAssetName("DOCUMENT")))).getAbsolutePath();
         mDocumentModule = Module.load(moduleFileAbsoluteFilePath);
-
-        mDocumentInputTensorBuffer =
-            Tensor.allocateFloatBuffer(3 * INPUT_TENSOR_DOCUMENT_WIDTH * INPUT_TENSOR_DOCUMENT_HEIGHT);
-        mDocumentInputTensor = Tensor.fromBlob(mDocumentInputTensorBuffer, new long[]{1, 3, INPUT_TENSOR_DOCUMENT_HEIGHT, INPUT_TENSOR_DOCUMENT_WIDTH});
       }
-
+      float [] MY_NORM_MEAN_RGB = {0, 0, 0};
+      float [] MY_NORM_STD_RGB = {1, 1, 1};
       long startTime = SystemClock.elapsedRealtime();
       Bitmap resizedBitmapImage = Bitmap.createScaledBitmap(bitmapImage, INPUT_TENSOR_DOCUMENT_WIDTH, INPUT_TENSOR_DOCUMENT_HEIGHT, true);
-      TensorImageUtils.bitmapToFloatBuffer(
-              resizedBitmapImage, 0, 0,
-          INPUT_TENSOR_DOCUMENT_WIDTH, INPUT_TENSOR_DOCUMENT_HEIGHT,
-          TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
-          TensorImageUtils.TORCHVISION_NORM_STD_RGB,
-          mDocumentInputTensorBuffer, 0);
+      mDocumentInputTensor = TensorImageUtils.bitmapToFloat32Tensor(resizedBitmapImage, MY_NORM_MEAN_RGB, MY_NORM_STD_RGB);
 
       final long documentInputPrepareDuration = SystemClock.elapsedRealtime() - startTime;
       final Tensor documentOutputTensor = mDocumentModule.forward(IValue.from(mDocumentInputTensor)).toTensor();
@@ -172,11 +160,13 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
       int [] yCords = new int[4];
 
       for (int i = 0; i < 4; i++) {
-        xCords[i] = (int)(documentResults[i*2] * imageWidth);
+        float val = documentResults[i*2];
+        xCords[i] = (int)((val>0? val:val) * imageWidth);
       }
 
       for (int i = 0; i < 4; i++) {
-        yCords[i] = (int)(documentResults[(i*2)+1] * imageHeight);
+        float val = documentResults[(i*2)+1];
+        yCords[i] = (int)((val>0? val:val) * imageHeight);
       }
 
       final int[] firstResults = new int[8];
@@ -219,9 +209,6 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
         final String moduleFileAbsoluteFilePath = new File(
                 Objects.requireNonNull(Utils.assetFilePath(this, getModuleAssetName("CORNER")))).getAbsolutePath();
         mCornerModule = Module.load(moduleFileAbsoluteFilePath);
-
-        FloatBuffer mCornerInputTensorBuffer = Tensor.allocateFloatBuffer(3 * INPUT_TENSOR_CORNER_WIDTH * INPUT_TENSOR_CORNER_HEIGHT);
-        mCornerInputTensor = Tensor.fromBlob(mCornerInputTensorBuffer, new long[]{1, 3, INPUT_TENSOR_CORNER_HEIGHT, INPUT_TENSOR_CORNER_WIDTH});
       }
 
       //circle canvas setup
@@ -241,12 +228,8 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
         Bitmap cornerBitmap = Bitmap.createBitmap(bitmapImage, cornerRegion.x1, cornerRegion.y1,
                 cornerRegion.x2 - cornerRegion.x1, cornerRegion.y2 - cornerRegion.y1);
         Bitmap resizedCornerBitmap = Bitmap.createScaledBitmap(cornerBitmap, INPUT_TENSOR_CORNER_WIDTH, INPUT_TENSOR_CORNER_HEIGHT, true);
-        TensorImageUtils.bitmapToFloatBuffer(
-                resizedCornerBitmap, 0, 0,
-                INPUT_TENSOR_CORNER_WIDTH, INPUT_TENSOR_CORNER_HEIGHT,
-                TensorImageUtils.TORCHVISION_NORM_MEAN_RGB,
-                TensorImageUtils.TORCHVISION_NORM_STD_RGB,
-                mDocumentInputTensorBuffer, 0);
+
+        mCornerInputTensor = TensorImageUtils.bitmapToFloat32Tensor(resizedCornerBitmap, MY_NORM_MEAN_RGB, MY_NORM_STD_RGB);
 
         final long cornerInputPrepareDuration = SystemClock.elapsedRealtime() - startTime;
         final Tensor cornerOutputTensor = mCornerModule.forward(IValue.from(mCornerInputTensor)).toTensor();

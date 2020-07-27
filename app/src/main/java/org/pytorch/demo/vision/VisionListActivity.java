@@ -14,7 +14,7 @@ public class VisionListActivity extends AbstractListActivity {
     super.onCreate(savedInstanceState);
     findViewById(R.id.vision_card_quantized_click_area).setOnClickListener(v -> {
       final Intent intent = new Intent(VisionListActivity.this, DocumentDetectionActivity.class);
-      intent.putExtra(DocumentDetectionActivity.INTENT_MODULE_DOCUMENT_ASSET_NAME, "test1document_shallow.pt");
+      intent.putExtra(DocumentDetectionActivity.INTENT_MODULE_DOCUMENT_ASSET_NAME, "test1document_resnet.pt");
       intent.putExtra(DocumentDetectionActivity.INTENT_MODULE_CORNER_ASSET_NAME, "test1corner_shallow_all.pt");
       intent.putExtra(DocumentDetectionActivity.INTENT_INFO_VIEW_TYPE,
           InfoViewFactory.INFO_VIEW_TYPE_DETECT_DOCUMENT_QUANTIZED);
@@ -22,7 +22,7 @@ public class VisionListActivity extends AbstractListActivity {
     });
     findViewById(R.id.vision_card_normal_click_area).setOnClickListener(v -> {
       final Intent intent = new Intent(VisionListActivity.this, DocumentDetectionActivity.class);
-      intent.putExtra(DocumentDetectionActivity.INTENT_MODULE_DOCUMENT_ASSET_NAME, "test1document_shallow_repo.pt");
+      intent.putExtra(DocumentDetectionActivity.INTENT_MODULE_DOCUMENT_ASSET_NAME, "test1document_resnet.pt");
       intent.putExtra(DocumentDetectionActivity.INTENT_MODULE_CORNER_ASSET_NAME, "test1corner_shallow_all.pt");
       intent.putExtra(DocumentDetectionActivity.INTENT_INFO_VIEW_TYPE,
           InfoViewFactory.INFO_VIEW_TYPE_DETECT_DOCUMENT_NORMAL);
