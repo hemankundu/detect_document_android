@@ -20,6 +20,9 @@ import org.pytorch.demo.Utils;
 import org.pytorch.torchvision.TensorImageUtils;
 
 import java.io.File;
+import java.util.Dictionary;
+import java.util.Enumeration;
+import java.util.Hashtable;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -32,24 +35,27 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
   public static final String INTENT_MODULE_DOCUMENT_ASSET_NAME = "INTENT_MODULE_DOCUMENT_ASSET_NAME";
   public static final String INTENT_MODULE_CORNER_ASSET_NAME = "INTENT_MODULE_CORNER_ASSET_NAME";
   public static final String INTENT_INFO_VIEW_TYPE = "INTENT_INFO_VIEW_TYPE";
-
   private static final int INPUT_TENSOR_DOCUMENT_WIDTH = 32;
   private static final int INPUT_TENSOR_DOCUMENT_HEIGHT = 32;
   private static final int INPUT_TENSOR_CORNER_WIDTH = 32;
   private static final int INPUT_TENSOR_CORNER_HEIGHT = 32;
-  public static final String RESULTS_FORMAT = "%d";
 
+  private boolean mAnalyzeImageErrorState;
+  private TextView ResultTextView;
+  private Module mDocumentModule;
+  private Module mCornerModule;
+  private String mDocumentModuleAssetName;
+  private String mCornerModuleAssetName;
 
   static class AnalysisResult {
+    public final int[] firstResults;
+    public final int[] finalResults;
+    public final Dictionary<String, Long> durationLog;
 
-    private final float[] documentResults;
-    private final int[] firstResults;
-    private final int[] finalResults;
-
-    public AnalysisResult(float[] documentResults, int[] firstResults, int[] finalResults) {
-      this.documentResults = documentResults;
+    public AnalysisResult(int[] firstResults, int[] finalResults, Dictionary<String, Long> durationLog) {
       this.firstResults = firstResults;
       this.finalResults = finalResults;
+      this.durationLog = durationLog;
     }
   }
 
@@ -62,15 +68,6 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
       this.y2 = Math.max(y2, 0);
     }
   }
-
-  private boolean mAnalyzeImageErrorState;
-  private TextView ResultTextView;
-  private Module mDocumentModule;
-  private Module mCornerModule;
-  private String mDocumentModuleAssetName;
-  private String mCornerModuleAssetName;
-  private Tensor mDocumentInputTensor;
-  private Tensor mCornerInputTensor;
 
   @Override
   protected int getContentViewLayoutId() {
@@ -91,11 +88,9 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
 
   @Override
   protected void applyToUiAnalyzeImageResult(AnalysisResult result) {
-    StringBuilder text = new StringBuilder();
-    for (int i = 0; i < 8; i++) {
-      text.append(" | ").append(String.format(Locale.US, RESULTS_FORMAT, result.finalResults[i]));
-    }
-    ResultTextView.setText(text.toString());
+
+    ResultTextView.setText(String.format(Locale.US, "Time taken | First model: %dms | Second model: %dms",
+                            result.durationLog.get("documentModuleForwardDuration"), result.durationLog.get("cornerModuleForwardDuration")));
   }
 
   protected String getModuleAssetName(String moduleType) {
@@ -134,6 +129,8 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
       return null;
     }
 
+    Dictionary<String, Long> durationLog = new Hashtable<>();
+
     try {
       //run document model
       if (mDocumentModule == null) {
@@ -145,12 +142,14 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
       float [] MY_NORM_STD_RGB = {1, 1, 1};
       long startTime = SystemClock.elapsedRealtime();
       Bitmap resizedBitmapImage = Bitmap.createScaledBitmap(bitmapImage, INPUT_TENSOR_DOCUMENT_WIDTH, INPUT_TENSOR_DOCUMENT_HEIGHT, true);
-      mDocumentInputTensor = TensorImageUtils.bitmapToFloat32Tensor(resizedBitmapImage, MY_NORM_MEAN_RGB, MY_NORM_STD_RGB);
 
-      final long documentInputPrepareDuration = SystemClock.elapsedRealtime() - startTime;
-      final Tensor documentOutputTensor = mDocumentModule.forward(IValue.from(mDocumentInputTensor)).toTensor();
-      final long documentModuleForwardDuration = SystemClock.elapsedRealtime() - documentInputPrepareDuration;
-      final float[] documentResults = documentOutputTensor.getDataAsFloatArray();
+      Tensor mDocumentInputTensor = TensorImageUtils.bitmapToFloat32Tensor(resizedBitmapImage, MY_NORM_MEAN_RGB, MY_NORM_STD_RGB);
+      Tensor documentOutputTensor = mDocumentModule.forward(IValue.from(mDocumentInputTensor)).toTensor();
+
+      long documentModuleForwardDuration = SystemClock.elapsedRealtime() - startTime;
+      durationLog.put("documentModuleForwardDuration" , documentModuleForwardDuration);
+
+      float[] documentResults = documentOutputTensor.getDataAsFloatArray();
 
       //test image class
       int imageHeight = bitmapImage.getHeight();
@@ -160,16 +159,13 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
       int [] yCords = new int[4];
 
       for (int i = 0; i < 4; i++) {
-        float val = documentResults[i*2];
-        xCords[i] = (int)((val>0? val:val) * imageWidth);
+        xCords[i] = (int)(documentResults[i*2] * imageWidth);
       }
-
       for (int i = 0; i < 4; i++) {
-        float val = documentResults[(i*2)+1];
-        yCords[i] = (int)((val>0? val:val) * imageHeight);
+        yCords[i] = (int)(documentResults[(i*2)+1] * imageHeight);
       }
 
-      final int[] firstResults = new int[8];
+      int[] firstResults = new int[8];
       for (int i = 0; i < 4; i++){
         firstResults[2*i] = xCords[i];
         firstResults[(2*i)+1] = yCords[i];
@@ -201,7 +197,7 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
 
       CornerRegion[] cornerRegions= {topLeft, topRight, bottomLeft, bottomRight};
 
-      final int[] finalResults = new int[8];
+      int[] finalResults = new int[8];
       int finalResultsIdx = 0;
 
       //run corner model
@@ -211,44 +207,27 @@ public class DocumentDetectionActivity extends AbstractCameraXActivity<DocumentD
         mCornerModule = Module.load(moduleFileAbsoluteFilePath);
       }
 
-      //circle canvas setup
-      Bitmap overlay = Bitmap.createBitmap(bitmapImage.getWidth(), bitmapImage.getHeight(), bitmapImage.getConfig());
-      Canvas canvas = new Canvas(overlay);
-      Paint paint = new Paint();
-      canvas.drawBitmap(bitmapImage, new Matrix(), null);
-      paint.setColor(Color.RED);
-      paint.setStrokeWidth(10);
-      for (int i = 0; i < 4; i++) {
-        canvas.drawCircle(xCords[i], yCords[i], 50, paint);
-      }
-      paint.setColor(Color.BLUE);
-
       for (CornerRegion cornerRegion : cornerRegions) {
         startTime = SystemClock.elapsedRealtime();
         Bitmap cornerBitmap = Bitmap.createBitmap(bitmapImage, cornerRegion.x1, cornerRegion.y1,
                 cornerRegion.x2 - cornerRegion.x1, cornerRegion.y2 - cornerRegion.y1);
         Bitmap resizedCornerBitmap = Bitmap.createScaledBitmap(cornerBitmap, INPUT_TENSOR_CORNER_WIDTH, INPUT_TENSOR_CORNER_HEIGHT, true);
 
-        mCornerInputTensor = TensorImageUtils.bitmapToFloat32Tensor(resizedCornerBitmap, MY_NORM_MEAN_RGB, MY_NORM_STD_RGB);
+        Tensor mCornerInputTensor = TensorImageUtils.bitmapToFloat32Tensor(resizedCornerBitmap, MY_NORM_MEAN_RGB, MY_NORM_STD_RGB);
+        Tensor cornerOutputTensor = mCornerModule.forward(IValue.from(mCornerInputTensor)).toTensor();
 
-        final long cornerInputPrepareDuration = SystemClock.elapsedRealtime() - startTime;
-        final Tensor cornerOutputTensor = mCornerModule.forward(IValue.from(mCornerInputTensor)).toTensor();
-        final long cornerModuleForwardDuration = SystemClock.elapsedRealtime() - cornerInputPrepareDuration;
+        final long cornerModuleForwardDuration = SystemClock.elapsedRealtime() - documentModuleForwardDuration;
+        durationLog.put("cornerModuleForwardDuration" , cornerModuleForwardDuration);
+
         final float[] cornerResults = cornerOutputTensor.getDataAsFloatArray();
 
         int finalCornerX = (int)(cornerResults[0] * (cornerRegion.x2 - cornerRegion.x1)) + cornerRegion.x1;
         int finalCornerY = (int)(cornerResults[1] * (cornerRegion.y2 - cornerRegion.y1)) + cornerRegion.y1;
         finalResults[finalResultsIdx++] = finalCornerX;
         finalResults[finalResultsIdx++] = finalCornerY;
-
-        //draw a circle
-        canvas.drawCircle(finalCornerX, finalCornerY, 50, paint);
-
       }
 
-      final long analysisDuration = SystemClock.elapsedRealtime() - startTime;
-
-      return new AnalysisResult(documentResults, firstResults, finalResults);
+      return new AnalysisResult(firstResults, finalResults, durationLog);
 
     } catch (Exception e) {
       Log.e(Constants.TAG, "Error during image analysis", e);
