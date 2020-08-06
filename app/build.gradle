@@ -12,7 +12,7 @@ android {
         sourceCompatibility 1.8
         targetCompatibility 1.8
     }
-    compileSdkVersion 30
+    compileSdkVersion 28
     defaultConfig {
         applicationId "org.pytorch.demo"
         minSdkVersion 21

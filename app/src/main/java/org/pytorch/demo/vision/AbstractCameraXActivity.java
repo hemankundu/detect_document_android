@@ -13,11 +13,13 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.view.Surface;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
 import org.pytorch.demo.BaseModuleActivity;
+import org.pytorch.demo.R;
 import org.pytorch.demo.StatusBarUtils;
 
 import java.io.File;
@@ -44,6 +46,7 @@ import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
   private static final int REQUEST_CODE_CAMERA_PERMISSION = 200;
@@ -189,7 +192,7 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
     Button capture_button = findViewById(org.pytorch.demo.R.id.capture_button);
 
     capture_button.setOnClickListener(v -> {
-      imageCapture.takePicture(Executors.newSingleThreadExecutor(),
+      imageCapture.takePicture(ContextCompat.getMainExecutor(this),
         new ImageCapture.OnImageCapturedCallback() {
           @Override
           public void onCaptureSuccess(@NonNull ImageProxy image) {
@@ -206,6 +209,10 @@ public abstract class AbstractCameraXActivity<R> extends BaseModuleActivity {
               Bitmap resultBitmapImage = drawCircles(bitmapImage, (DocumentDetectionActivity.AnalysisResult) result);
               saveBitmapToFile("IMG" + timeStamp + "_out.jpg", resultBitmapImage);
 
+              //show image
+              setContentView(org.pytorch.demo.R.layout.show_result_image);
+              ImageView resultImageView =  findViewById(org.pytorch.demo.R.id.resultImageView);
+              resultImageView.setImageBitmap(resultBitmapImage);
             }
             image.close();
           }
